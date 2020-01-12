@@ -1,10 +1,10 @@
-import sys
-import os
-import platform
-import logging
-import subprocess
 import http.server
 import socketserver
+import os
+import sys
+from urllib.request import urlopen
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+from PyQt5 import QtCore, QtGui
 
 from PyQt5.QtWidgets import QApplication, QLabel, QFileDialog, QMessageBox
 
@@ -12,12 +12,21 @@ from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtGui import QPixmap,  QFont
 
-try:
-    os.chdir(os.path.dirname(sys.argv[0]))
-except Exception:
-    pass
-
-
+# PORT = 8080
+#
+# Handler = http.server.SimpleHTTPRequestHandler
+#
+# Bind = '127.0.0.1'
+#
+# Directory = '/Users/Jeroen/FileSharing'
+#
+# httpd = socketserver.TCPServer(("", PORT), Handler, Bind)
+#
+# print("serving at port", PORT)
+# httpd.serve_forever()
+#
+#
+# httpd.server_close()
 def resource_path(relative_path):
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
@@ -27,12 +36,20 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-# Set logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-# logging.disable(logging.DEBUG)
+HOST, PORT = '127.0.0.1', 12345
 
 
-# PyQT GUI
+class HttpDaemon(QtCore.QThread):
+    def run(self):
+        self._server = HTTPServer((HOST, PORT), SimpleHTTPRequestHandler)
+        self._server.serve_forever()
+
+    def stop(self):
+        self._server.shutdown()
+        self._server.socket.close()
+        self.wait()
+
+
 class MainPage(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
@@ -52,25 +69,21 @@ class MainPage(QtWidgets.QMainWindow):
         # self.label_logo.setPixmap(pixmap)
 
         # Buttons
-        self.pushButton_start_server.clicked.connect(self.start_server)
-        self.pushButton_stop_server.clicked.connect(self.stop_server)
+        self.pushButton_start_server.clicked.connect(self.handleButton)
+        # self.pushButton_stop_server.clicked.connect(self.stop_server)
 
-        self.port = 8080
 
-        self.handler = http.server.SimpleHTTPRequestHandler
+        self.httpd = HttpDaemon(self)
 
-        self.bind = '127.0.0.1'
+    def handleButton(self):
+        if self.button.text() == 'Start':
+            self.httpd.start()
+            self.button.setText('Test')
+        else:
+            urlopen('http://%s:%s/index.html' % (HOST, PORT))
 
-        self.directory = '/Users/Jeroen/FileSharing'
-
-        self.httpd = socketserver.TCPServer(("", self.port), self.handler, self.bind)
-
-    def start_server(self):
-        logging.info('Server started at {}'.format(self.port))
-        self.httpd.serve_forever()
-
-    def stop_server(self):
-        self.httpd.server_close()
+    def closeEvent(self, event):
+        self.httpd.stop()
 
 
 def main():

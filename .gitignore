@@ -136,3 +136,8 @@ git status
 /*.DS_Store
 /.user
 /build
+/dist/
+/__pycache__
+main.spec
+/example_data
+todo.md
